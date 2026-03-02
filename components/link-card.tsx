@@ -2,8 +2,10 @@
 
 import { Copy, MousePointerClick, ExternalLink } from "lucide-react"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 
 interface LinkCardProps {
+  slug: string
   shortUrl: string
   originalUrl: string
   favicon: string
@@ -14,6 +16,7 @@ interface LinkCardProps {
 }
 
 export function LinkCard({
+  slug,
   shortUrl,
   originalUrl,
   favicon,
@@ -23,15 +26,32 @@ export function LinkCard({
   isActive,
 }: LinkCardProps) {
   const [copied, setCopied] = useState(false)
+  const router = useRouter()
 
-  const handleCopy = () => {
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation()
     navigator.clipboard.writeText(shortUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const handleCardClick = () => {
+    router.push(`/links/${slug}`)
+  }
+
   return (
-    <div className="flex items-center gap-4 rounded-lg border border-border bg-card px-4 py-3 transition-colors hover:bg-accent/50">
+    <div
+      onClick={handleCardClick}
+      className="flex cursor-pointer items-center gap-4 rounded-lg border border-border bg-card px-4 py-3 transition-colors hover:bg-accent/50"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault()
+          handleCardClick()
+        }
+      }}
+    >
       {/* Favicon */}
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-secondary">
         <img
@@ -47,14 +67,9 @@ export function LinkCard({
       {/* Link info */}
       <div className="flex min-w-0 flex-col gap-0.5">
         <div className="flex items-center gap-2">
-          <a
-            href={shortUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="truncate text-sm font-semibold text-foreground hover:underline"
-          >
+          <span className="truncate text-sm font-semibold text-foreground">
             {shortUrl.replace("https://", "")}
-          </a>
+          </span>
           <button
             onClick={handleCopy}
             className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
@@ -67,15 +82,16 @@ export function LinkCard({
           )}
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <a
-            href={originalUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1 truncate hover:text-foreground"
+          <span
+            onClick={(e) => {
+              e.stopPropagation()
+              window.open(originalUrl, "_blank", "noopener,noreferrer")
+            }}
+            className="flex cursor-pointer items-center gap-1 truncate hover:text-foreground"
           >
             {originalUrl.replace("https://", "").replace("http://", "")}
             <ExternalLink className="h-3 w-3 shrink-0" />
-          </a>
+          </span>
           <span className="shrink-0">{"·"}</span>
           <span className="shrink-0">{createdAt}</span>
         </div>
