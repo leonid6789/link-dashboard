@@ -1,3 +1,5 @@
+export const LINKS_STORAGE_KEY = "link-dashboard.links"
+
 export interface LinkData {
   slug: string
   shortUrl: string
@@ -14,6 +16,30 @@ export interface LinkData {
   tags: string[]
   folder: string
   conversionTracking: boolean
+}
+
+/** Reads persisted links from localStorage. Returns [] if none or invalid. Client-only. */
+export function getStoredLinks(): LinkData[] {
+  if (typeof window === "undefined") return []
+  try {
+    const raw = window.localStorage.getItem(LINKS_STORAGE_KEY)
+    if (!raw) return []
+    const parsed = JSON.parse(raw) as unknown
+    if (!Array.isArray(parsed)) return []
+    return parsed as LinkData[]
+  } catch {
+    return []
+  }
+}
+
+/** Writes the full links list to localStorage. Client-only. */
+export function saveStoredLinks(links: LinkData[]): void {
+  if (typeof window === "undefined") return
+  try {
+    window.localStorage.setItem(LINKS_STORAGE_KEY, JSON.stringify(links))
+  } catch {
+    // ignore
+  }
 }
 
 export const sampleLinks: LinkData[] = [
@@ -155,6 +181,9 @@ export const sampleLinks: LinkData[] = [
   },
 ]
 
+/** Resolves a link by slug: stored links first, then sampleLinks. Client-only for storage. */
 export function getLinkBySlug(slug: string): LinkData | undefined {
+  const fromStored = getStoredLinks().find((link) => link.slug === slug)
+  if (fromStored) return fromStored
   return sampleLinks.find((link) => link.slug === slug)
 }

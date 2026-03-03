@@ -1,20 +1,44 @@
 "use client"
 
+import { useState } from "react"
 import { ChevronDown, Plus, Search, SlidersHorizontal, ListChecks, PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { LinkCard } from "@/components/link-card"
-import { sampleLinks } from "@/lib/links-data"
+import CreateLinkModal from "@/components/create-link-modal"
+import { sampleLinks, getStoredLinks, saveStoredLinks, type LinkData } from "@/lib/links-data"
 
 interface LinksContentProps {
   collapsed: boolean
   onToggleCollapse: () => void
 }
 
+function getInitialLinks(): LinkData[] {
+  const stored = getStoredLinks()
+  return stored.length > 0 ? stored : sampleLinks
+}
+
 export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps) {
+  const [open, setOpen] = useState(false)
+  const [links, setLinks] = useState<LinkData[]>(getInitialLinks)
+
+  const handleCreateLink = (newLink: LinkData) => {
+    setLinks((prev) => {
+      const next = [...prev, newLink]
+      saveStoredLinks(next)
+      return next
+    })
+    setOpen(false)
+  }
+
   return (
     <main className="flex flex-1 flex-col overflow-hidden bg-background">
+      <CreateLinkModal
+        open={open}
+        onOpenChange={setOpen}
+        onCreateLink={handleCreateLink}
+      />
       {/* Header */}
       <div className="flex items-center justify-between px-6 pt-6 pb-4">
         <div className="flex items-center gap-3">
@@ -34,7 +58,7 @@ export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps)
             <ChevronDown className="h-4 w-4 text-muted-foreground" />
           </button>
         </div>
-        <Button className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
+        <Button onClick={() => setOpen(true)} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/90">
           <Plus className="h-4 w-4" />
           Create Link
         </Button>
@@ -66,7 +90,7 @@ export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps)
       {/* Link list */}
       <div className="flex-1 overflow-y-auto px-6 pb-6">
         <div className="flex flex-col gap-2">
-          {sampleLinks.map((link) => (
+          {links.map((link) => (
             <LinkCard key={link.shortUrl} {...link} />
           ))}
         </div>
