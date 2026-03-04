@@ -23,7 +23,7 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import type { LinkData } from "@/lib/links-data"
+import { getStoredLinks, saveStoredLinks, type LinkData } from "@/lib/links-data"
 
 interface LinkDetailContentProps {
   link: LinkData
@@ -33,13 +33,54 @@ interface LinkDetailContentProps {
 
 export function LinkDetailContent({ link, collapsed, onToggleCollapse }: LinkDetailContentProps) {
   const router = useRouter()
+  const initialTags = link.tags.join(", ")
   const [copied, setCopied] = useState(false)
-  const [conversionEnabled, setConversionEnabled] = useState(link.conversionTracking)
+  const [originalUrl, setOriginalUrl] = useState(link.originalUrl)
+  const [description, setDescription] = useState(link.description)
+  const [tagsInput, setTagsInput] = useState(initialTags)
+  const [conversionTracking, setConversionTracking] = useState(link.conversionTracking)
+  const [saved, setSaved] = useState(false)
+
+  const hasChanges =
+    originalUrl !== link.originalUrl ||
+    description !== link.description ||
+    tagsInput !== initialTags ||
+    conversionTracking !== link.conversionTracking
 
   const handleCopy = () => {
     navigator.clipboard.writeText(link.shortUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleSave = () => {
+    if (!hasChanges) return
+
+    const storedLinks = getStoredLinks()
+    const existingIndex = storedLinks.findIndex((stored) => stored.slug === link.slug)
+    const base: LinkData = existingIndex >= 0 ? storedLinks[existingIndex] : link
+    const tags = tagsInput
+      .split(",")
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+
+    const updated: LinkData = {
+      ...base,
+      originalUrl,
+      description,
+      tags,
+      conversionTracking,
+    }
+
+    const nextLinks =
+      existingIndex >= 0
+        ? storedLinks.map((stored, idx) => (idx === existingIndex ? updated : stored))
+        : [...storedLinks, updated]
+
+    saveStoredLinks(nextLinks)
+    window.dispatchEvent(new Event("links:updated"))
+    setSaved(true)
+    window.setTimeout(() => setSaved(false), 2000)
   }
 
   return (
@@ -111,7 +152,8 @@ export function LinkDetailContent({ link, collapsed, onToggleCollapse }: LinkDet
                 </Tooltip>
               </div>
               <Input
-                defaultValue={link.originalUrl}
+                value={originalUrl}
+                onChange={(event) => setOriginalUrl(event.target.value)}
                 className="border-border bg-input text-sm text-foreground"
               />
             </div>
@@ -153,6 +195,8 @@ export function LinkDetailContent({ link, collapsed, onToggleCollapse }: LinkDet
                 <Tag className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Select tags"
+                  value={tagsInput}
+                  onChange={(event) => setTagsInput(event.target.value)}
                   className="border-border bg-input pl-9 text-sm text-foreground placeholder:text-muted-foreground"
                 />
               </div>
@@ -170,8 +214,8 @@ export function LinkDetailContent({ link, collapsed, onToggleCollapse }: LinkDet
                 </Tooltip>
               </div>
               <Switch
-                checked={conversionEnabled}
-                onCheckedChange={setConversionEnabled}
+                checked={conversionTracking}
+                onCheckedChange={setConversionTracking}
               />
             </div>
 
@@ -203,7 +247,8 @@ export function LinkDetailContent({ link, collapsed, onToggleCollapse }: LinkDet
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Description</label>
               <Textarea
-                defaultValue={link.description}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
                 placeholder="Add a short description here..."
                 className="min-h-20 resize-none border-border bg-input text-sm text-foreground placeholder:text-muted-foreground"
               />
@@ -230,6 +275,17 @@ export function LinkDetailContent({ link, collapsed, onToggleCollapse }: LinkDet
             </div>
 
             <Separator />
+
+            <div className="flex items-center justify-end gap-3">
+              {saved && <span className="text-sm text-muted-foreground">Saved</span>}
+              <Button
+                onClick={handleSave}
+                disabled={!hasChanges}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
+                Save changes
+              </Button>
+            </div>
 
             {/* Footer */}
             <p className="text-xs text-muted-foreground">

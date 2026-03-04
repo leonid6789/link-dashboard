@@ -1,12 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { ChevronDown, Plus, Search, SlidersHorizontal, ListChecks, PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { LinkCard } from "@/components/link-card"
 import CreateLinkModal from "@/components/create-link-modal"
+import { ToastNotification } from "@/components/toast-notification"
 import { sampleLinks, getStoredLinks, saveStoredLinks, type LinkData } from "@/lib/links-data"
 
 interface LinksContentProps {
@@ -19,17 +20,53 @@ function getInitialLinks(): LinkData[] {
   return stored.length > 0 ? stored : sampleLinks
 }
 
+const SKELETON_ROWS = 8
+
 export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps) {
   const [open, setOpen] = useState(false)
-  const [links, setLinks] = useState<LinkData[]>(getInitialLinks)
+  const [mounted, setMounted] = useState(false)
+  const [links, setLinks] = useState<LinkData[]>([])
+  const [toastVisible, setToastVisible] = useState(false)
+  const [toastType, setToastType] = useState<"success" | "error">("success")
+  const [toastTitle, setToastTitle] = useState("")
+  const [toastMessage, setToastMessage] = useState("")
+
+  const refreshLinks = useCallback(() => {
+    setLinks(getInitialLinks())
+  }, [])
+
+  useEffect(() => {
+    setLinks(getInitialLinks())
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    window.addEventListener("links:updated", refreshLinks)
+    return () => {
+      window.removeEventListener("links:updated", refreshLinks)
+    }
+  }, [refreshLinks])
 
   const handleCreateLink = (newLink: LinkData) => {
-    setLinks((prev) => {
-      const next = [...prev, newLink]
-      saveStoredLinks(next)
-      return next
-    })
-    setOpen(false)
+    try {
+      setLinks((prev) => {
+        const next = [...prev, newLink]
+        saveStoredLinks(next)
+        return next
+      })
+
+      setToastType("success")
+      setToastTitle("Link Created")
+      setToastMessage("The short link was created successfully.")
+      setToastVisible(true)
+      setOpen(false)
+    } catch (error) {
+      console.error("Failed to create link", error)
+      setToastType("error")
+      setToastTitle("Link Creation Failed")
+      setToastMessage("Something went wrong while creating the short link.")
+      setToastVisible(true)
+    }
   }
 
   return (
@@ -39,6 +76,14 @@ export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps)
         onOpenChange={setOpen}
         onCreateLink={handleCreateLink}
       />
+      {toastVisible && (
+        <ToastNotification
+          title={toastTitle}
+          message={toastMessage}
+          type={toastType}
+          onClose={() => setToastVisible(false)}
+        />
+      )}
       {/* Header */}
       <div className="flex items-center justify-between px-6 pt-6 pb-4">
         <div className="flex items-center gap-3">
@@ -90,9 +135,18 @@ export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps)
       {/* Link list */}
       <div className="flex-1 overflow-y-auto px-6 pb-6">
         <div className="flex flex-col gap-2">
-          {links.map((link) => (
-            <LinkCard key={link.shortUrl} {...link} />
-          ))}
+          {mounted ? (
+            links.map((link) => (
+              <LinkCard key={link.shortUrl} {...link} />
+            ))
+          ) : (
+            Array.from({ length: SKELETON_ROWS }, (_, i) => (
+              <div
+                key={i}
+                className="h-[72px] animate-pulse rounded-lg border border-border bg-secondary"
+              />
+            ))
+          )}
         </div>
       </div>
     </main>
