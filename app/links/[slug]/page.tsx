@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { useParams, notFound } from "next/navigation"
 import { DashboardSidebar } from "@/components/dashboard-sidebar"
 import { LinkDetailContent } from "@/components/link-detail-content"
-import { getAuthUser, getLinkBySlug } from "@/lib/supabase/client"
+import { getAuthUser, getLinkBySlug, getLink } from "@/lib/supabase/client"
 import { mapRowToLinkData, type LinkData } from "@/lib/links-data"
 
 export default function LinkDetailPage() {
@@ -47,19 +47,15 @@ export default function LinkDetailPage() {
   useEffect(() => {
     const handler = () => {
       if (!link?.id) return
-      getAuthUser().then(({ user }) => {
-        if (user) {
-          getLinkBySlug(slug, user.id).then(({ data }) => {
-            if (data) {
-              setLink(mapRowToLinkData(data as Record<string, unknown>))
-            }
-          })
+      getLink(link.id).then(({ data }) => {
+        if (data) {
+          setLink(mapRowToLinkData(data as Record<string, unknown>))
         }
       })
     }
     window.addEventListener("links:updated", handler)
     return () => window.removeEventListener("links:updated", handler)
-  }, [slug, link?.id])
+  }, [link?.id])
 
   if (loading) {
     return (

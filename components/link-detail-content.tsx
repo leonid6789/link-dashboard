@@ -15,7 +15,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -23,8 +23,9 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { updateLink } from "@/lib/supabase/client"
+import { updateLink, getLinkBySlug } from "@/lib/supabase/client"
 import type { LinkData } from "@/lib/links-data"
+import { ToastNotification } from "@/components/toast-notification"
 
 interface LinkDetailContentProps {
   link: LinkData
@@ -37,13 +38,23 @@ export function LinkDetailContent({ link, collapsed, onToggleCollapse }: LinkDet
   const initialTags = link.tags.join(", ")
   const [copied, setCopied] = useState(false)
   const [originalUrl, setOriginalUrl] = useState(link.originalUrl)
+  const [slugInput, setSlugInput] = useState(link.slug)
   const [description, setDescription] = useState(link.description)
   const [tagsInput, setTagsInput] = useState(initialTags)
   const [conversionTracking, setConversionTracking] = useState(link.conversionTracking)
   const [saved, setSaved] = useState(false)
+  const [toastVisible, setToastVisible] = useState(false)
+  const [toastType, setToastType] = useState<"success" | "error">("success")
+  const [toastTitle, setToastTitle] = useState("")
+  const [toastMessage, setToastMessage] = useState("")
+
+  useEffect(() => {
+    setSlugInput(link.slug)
+  }, [link.slug])
 
   const hasChanges =
     originalUrl !== link.originalUrl ||
+    slugInput.trim() !== link.slug ||
     description !== link.description ||
     tagsInput !== initialTags ||
     conversionTracking !== link.conversionTracking
@@ -57,27 +68,76 @@ export function LinkDetailContent({ link, collapsed, onToggleCollapse }: LinkDet
   const handleSave = async () => {
     if (!hasChanges || !link.id) return
 
+    const trimmedSlug = slugInput.trim()
+    if (!trimmedSlug) {
+      setToastType("error")
+      setToastTitle("Invalid slug")
+      setToastMessage("Short link cannot be empty.")
+      setToastVisible(true)
+      return
+    }
+
+    if (trimmedSlug !== link.slug) {
+      const { data: existing } = await getLinkBySlug(trimmedSlug, link.createdBy)
+      if (existing && (existing as { id?: string }).id !== link.id) {
+        setToastType("error")
+        setToastTitle("Short link already in use")
+        setToastMessage("Another link already uses this short link.")
+        setToastVisible(true)
+        return
+      }
+    }
+
     const tags = tagsInput
       .split(",")
       .map((tag) => tag.trim())
       .filter(Boolean)
 
-    const { error } = await updateLink(link.id, {
+    const updates: Parameters<typeof updateLink>[1] = {
       destination_url: originalUrl,
       description,
-      tags,
+      tags: tags, // Always include - empty array clears tags in DB; omit would leave old value
       conversion_tracking: conversionTracking,
-    })
+      folder: link.folder,
+    }
+    if (trimmedSlug !== link.slug) {
+      updates.slug = trimmedSlug
+    }
 
-    if (!error) {
-      window.dispatchEvent(new Event("links:updated"))
-      setSaved(true)
-      window.setTimeout(() => setSaved(false), 2000)
+    const { error } = await updateLink(link.id, updates)
+
+    if (error) {
+      setToastType("error")
+      setToastTitle("Save failed")
+      setToastMessage(error.message)
+      setToastVisible(true)
+      return
+    }
+
+    window.dispatchEvent(new Event("links:updated"))
+    setSaved(true)
+    setSlugInput(trimmedSlug)
+    setToastType("success")
+    setToastTitle("Link saved")
+    setToastMessage("Your changes have been saved.")
+    setToastVisible(true)
+    window.setTimeout(() => setSaved(false), 2000)
+
+    if (trimmedSlug !== link.slug) {
+      router.replace(`/links/${trimmedSlug}`)
     }
   }
 
   return (
     <TooltipProvider delayDuration={0}>
+      {toastVisible && (
+        <ToastNotification
+          title={toastTitle}
+          message={toastMessage}
+          type={toastType}
+          onClose={() => setToastVisible(false)}
+        />
+      )}
       <main className="flex flex-1 flex-col overflow-hidden bg-background">
         {/* Top Bar */}
         <div className="flex items-center justify-between px-6 pt-6 pb-4">
@@ -167,7 +227,8 @@ export function LinkDetailContent({ link, collapsed, onToggleCollapse }: LinkDet
                   </span>
                 </div>
                 <Input
-                  defaultValue={link.shortCode}
+                  value={slugInput}
+                  onChange={(e) => setSlugInput(e.target.value)}
                   className="rounded-l-none border-border bg-input text-sm text-foreground"
                 />
               </div>

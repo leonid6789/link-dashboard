@@ -75,9 +75,14 @@ export async function updateLink(
   }>
 ) {
   const supabase = createClient();
+  // Ensure tags is passed through when present - never strip empty arrays (needed to clear tags in DB)
+  const payload = { ...updates };
+  if (Object.prototype.hasOwnProperty.call(updates, "tags")) {
+    payload.tags = Array.isArray(updates.tags) ? updates.tags : [];
+  }
   const { data, error } = await supabase
     .from("links_tbl")
-    .update(updates)
+    .update(payload)
     .eq("id", linkId)
     .select()
     .single();
