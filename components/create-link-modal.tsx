@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { LinkData } from "@/lib/links-data"
+import { getShortLinkDomain } from "@/lib/links-data"
 import { createLink, getAuthUser } from "@/lib/supabase/client"
 import { ToastNotification } from "@/components/toast-notification"
 
@@ -57,7 +58,7 @@ export default function CreateLinkModal({
 }: CreateLinkModalProps) {
   const [destinationUrl, setDestinationUrl] = useState("")
   const [shortCode, setShortCode] = useState("")
-  const [domain, setDomain] = useState("linkd.sh")
+  const [domain, setDomain] = useState(() => getShortLinkDomain())
   const [description, setDescription] = useState("")
   const [folder, setFolder] = useState("Links")
   const [conversionTracking, setConversionTracking] = useState(false)
@@ -169,7 +170,7 @@ export default function CreateLinkModal({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="linkd.sh">linkd.sh</SelectItem>
+                    <SelectItem value={getShortLinkDomain()}>{getShortLinkDomain()}</SelectItem>
                   </SelectContent>
                 </Select>
                 <div className="relative flex-1">

@@ -8,67 +8,13 @@ import { Separator } from "@/components/ui/separator"
 import { LinkCard } from "@/components/link-card"
 import CreateLinkModal from "@/components/create-link-modal"
 import { ToastNotification } from "@/components/toast-notification"
-import type { LinkData } from "@/lib/links-data"
+import { mapRowToLinkData, type LinkData } from "@/lib/links-data"
 import { DevAuth } from "@/components/dev-auth"
 import { getAuthUser, getLinksForUser } from "@/lib/supabase/client"
 
 interface LinksContentProps {
   collapsed: boolean
   onToggleCollapse: () => void
-}
-
-function getFaviconForUrl(url: string): string {
-  try {
-    const hostname = new URL(url).hostname.replace(/^www\./, "")
-    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`
-  } catch {
-    return "https://www.google.com/s2/favicons?domain=example.com&sz=64"
-  }
-}
-
-function relativeTime(isoDate: string): string {
-  const diffMs = Date.now() - new Date(isoDate).getTime()
-  const mins = Math.floor(diffMs / 60_000)
-  const hrs = Math.floor(mins / 60)
-  const days = Math.floor(hrs / 24)
-  const weeks = Math.floor(days / 7)
-
-  if (mins < 1) return "just now"
-  if (mins < 60) return `${mins}m ago`
-  if (hrs < 24) return `${hrs}h ago`
-  if (days < 7) return `${days}d ago`
-  if (weeks < 5) return `${weeks}w ago`
-  return new Date(isoDate).toLocaleDateString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
-  })
-}
-
-function mapRowToLinkData(row: Record<string, unknown>): LinkData {
-  const slug = (row.slug as string) ?? ""
-  const destinationUrl = (row.destination_url as string) ?? ""
-  const createdIso = (row.created_at as string) ?? ""
-  return {
-    slug,
-    shortUrl: `https://linkd.sh/${slug}`,
-    shortCode: slug,
-    domain: "linkd.sh",
-    originalUrl: destinationUrl,
-    favicon: getFaviconForUrl(destinationUrl),
-    description: (row.description as string) ?? "",
-    clicks: 0,
-    createdAt: createdIso ? relativeTime(createdIso) : "",
-    createdBy: (row.user_id as string) ?? "",
-    createdDate: createdIso
-      ? new Date(createdIso).toLocaleString("en-US", {
-          month: "short", day: "numeric", year: "numeric",
-          hour: "numeric", minute: "2-digit", hour12: true,
-        })
-      : "",
-    isActive: true,
-    tags: Array.isArray(row.tags) ? (row.tags as string[]) : [],
-    folder: (row.folder as string) ?? "Links",
-    conversionTracking: (row.conversion_tracking as boolean) ?? false,
-  }
 }
 
 const SKELETON_ROWS = 8
@@ -189,7 +135,7 @@ export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps)
         <div className="flex flex-col gap-2">
           {mounted ? (
             links.map((link) => (
-              <LinkCard key={link.shortUrl} {...link} />
+              <LinkCard key={link.id || link.slug} {...link} />
             ))
           ) : (
             Array.from({ length: SKELETON_ROWS }, (_, i) => (

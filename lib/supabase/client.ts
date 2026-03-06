@@ -137,12 +137,22 @@ export async function getAuthUser() {
   return { user, error };
 }
 export async function getLinksForUser(userId: string) {
-  const supabase = createClient()
+  const supabase = createClient();
   const { data, error } = await supabase
     .from("links_tbl")
     .select("*")
     .eq("user_id", userId)
-    .order("created_at", { ascending: false })
+    .order("created_at", { ascending: false });
+  return { data, error };
+}
 
-  return { data, error }
+export async function getLinkBySlug(slug: string, userId: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("links_tbl")
+    .select("*")
+    .eq("slug", slug)
+    .eq("user_id", userId)
+    .maybeSingle();
+  return { data, error };
 }

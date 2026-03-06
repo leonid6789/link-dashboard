@@ -68,7 +68,7 @@ export function LinkCard({
       <div className="flex min-w-0 flex-col gap-0.5">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-semibold text-foreground">
-            {shortUrl.replace("https://", "")}
+            {shortUrl.replace(/^https?:\/\//, "")}
           </span>
           <button
             onClick={handleCopy}

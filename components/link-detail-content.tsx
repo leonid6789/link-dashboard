@@ -23,7 +23,8 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { getStoredLinks, saveStoredLinks, type LinkData } from "@/lib/links-data"
+import { updateLink } from "@/lib/supabase/client"
+import type { LinkData } from "@/lib/links-data"
 
 interface LinkDetailContentProps {
   link: LinkData
@@ -53,34 +54,26 @@ export function LinkDetailContent({ link, collapsed, onToggleCollapse }: LinkDet
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleSave = () => {
-    if (!hasChanges) return
+  const handleSave = async () => {
+    if (!hasChanges || !link.id) return
 
-    const storedLinks = getStoredLinks()
-    const existingIndex = storedLinks.findIndex((stored) => stored.slug === link.slug)
-    const base: LinkData = existingIndex >= 0 ? storedLinks[existingIndex] : link
     const tags = tagsInput
       .split(",")
       .map((tag) => tag.trim())
       .filter(Boolean)
 
-    const updated: LinkData = {
-      ...base,
-      originalUrl,
+    const { error } = await updateLink(link.id, {
+      destination_url: originalUrl,
       description,
       tags,
-      conversionTracking,
+      conversion_tracking: conversionTracking,
+    })
+
+    if (!error) {
+      window.dispatchEvent(new Event("links:updated"))
+      setSaved(true)
+      window.setTimeout(() => setSaved(false), 2000)
     }
-
-    const nextLinks =
-      existingIndex >= 0
-        ? storedLinks.map((stored, idx) => (idx === existingIndex ? updated : stored))
-        : [...storedLinks, updated]
-
-    saveStoredLinks(nextLinks)
-    window.dispatchEvent(new Event("links:updated"))
-    setSaved(true)
-    window.setTimeout(() => setSaved(false), 2000)
   }
 
   return (
@@ -109,7 +102,7 @@ export function LinkDetailContent({ link, collapsed, onToggleCollapse }: LinkDet
               </button>
               <span className="text-muted-foreground">/</span>
               <span className="font-medium text-foreground">
-                {link.shortUrl.replace("https://", "")}
+                {link.shortUrl.replace(/^https?:\/\//, "")}
               </span>
             </nav>
           </div>

@@ -26,4 +26,14 @@ export async function createClient() {
       },
     },
   );
-};
+}
+
+export async function getLinkBySlug(slug: string) {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("links_tbl")
+    .select("destination_url")
+    .eq("slug", slug)
+    .maybeSingle();
+  return { data, error };
+}
