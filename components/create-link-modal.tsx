@@ -23,6 +23,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { LinkData } from "@/lib/links-data"
+import { createLink, getAuthUser } from "@/lib/supabase/client"
+import { ToastNotification } from "@/components/toast-notification"
 
 function getFaviconForUrl(url: string): string {
   try {
@@ -63,6 +65,11 @@ export default function CreateLinkModal({
   // NEW: normal textbox state for tags (not wired into LinkCard yet)
   const [tagsText, setTagsText] = useState("")
 
+  const [toastVisible, setToastVisible] = useState(false)
+  const [toastTitle, setToastTitle] = useState("")
+  const [toastMessage, setToastMessage] = useState("")
+  const [toastType, setToastType] = useState<"success" | "error">("success")
+
   useEffect(() => {
     if (open) {
       setShortCode(generateShortCode())
@@ -73,35 +80,66 @@ export default function CreateLinkModal({
     setShortCode(generateShortCode())
   }
 
-  const handleCreateLink = () => {
-    const originalUrl = destinationUrl.trim() || "https://example.com"
-    const slug = shortCode
-    const shortUrl = `https://${domain}/${slug}`
+  const handleCreateLink = async () => {
+    const { user } = await getAuthUser()
 
-    const newLink: LinkData = {
-      slug,
-      shortUrl,
-      shortCode,
-      domain,
-      originalUrl,
-      favicon: getFaviconForUrl(originalUrl),
-      description: description.trim(),
-      clicks: 0,
-      createdAt: "Just now",
-      createdBy: "",
-      createdDate: new Date().toLocaleString(),
-      isActive: true,
-      tags: [], // keep as-is for now (course-style)
-      folder,
-      conversionTracking,
+    if (!user) {
+      setToastType("error")
+      setToastTitle("User not authenticated")
+      setToastMessage("You must be signed in to create a link.")
+      setToastVisible(true)
+      return
     }
 
-    onCreateLink(newLink)
-    onOpenChange(false)
+    const destination_url = destinationUrl.trim() || "https://example.com"
+    const slug = shortCode
+    const tags = tagsText
+      .split(/[\s,]+/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+    const conversion_tracking = conversionTracking
+    const folderValue = folder
+    const descriptionValue = description.trim()
+
+    const payload = {
+      user_id: user.id,
+      destination_url,
+      slug,
+      tags: tags.length > 0 ? tags : undefined,
+      conversion_tracking,
+      folder: folderValue,
+      description: descriptionValue || undefined,
+    }
+
+    try {
+      const { error } = await createLink(payload)
+
+      if (error) {
+        setToastType("error")
+        setToastTitle("Link creation failed")
+        setToastMessage(error.message ?? String(error))
+        setToastVisible(true)
+        return
+      }
+
+      setToastType("success")
+      setToastTitle("Link Created")
+      setToastMessage("The short link was created successfully.")
+      setToastVisible(true)
+      onOpenChange(false)
+      window.dispatchEvent(new Event("links:updated"))
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      setToastType("error")
+      setToastTitle("Link creation failed")
+      setToastMessage(message)
+      setToastVisible(true)
+    }
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-full max-w-5xl gap-0 p-0 sm:max-w-5xl">
         <DialogHeader className="px-6 pt-6 pb-4 text-left">
           <DialogTitle className="text-base font-semibold text-muted-foreground">
@@ -228,5 +266,14 @@ export default function CreateLinkModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+      {toastVisible && (
+        <ToastNotification
+          title={toastTitle}
+          message={toastMessage}
+          type={toastType}
+          onClose={() => setToastVisible(false)}
+        />
+      )}
+    </>
   )
 }

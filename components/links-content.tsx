@@ -8,16 +8,67 @@ import { Separator } from "@/components/ui/separator"
 import { LinkCard } from "@/components/link-card"
 import CreateLinkModal from "@/components/create-link-modal"
 import { ToastNotification } from "@/components/toast-notification"
-import { sampleLinks, getStoredLinks, saveStoredLinks, type LinkData } from "@/lib/links-data"
+import type { LinkData } from "@/lib/links-data"
+import { DevAuth } from "@/components/dev-auth"
+import { getAuthUser, getLinksForUser } from "@/lib/supabase/client"
 
 interface LinksContentProps {
   collapsed: boolean
   onToggleCollapse: () => void
 }
 
-function getInitialLinks(): LinkData[] {
-  const stored = getStoredLinks()
-  return stored.length > 0 ? stored : sampleLinks
+function getFaviconForUrl(url: string): string {
+  try {
+    const hostname = new URL(url).hostname.replace(/^www\./, "")
+    return `https://www.google.com/s2/favicons?domain=${hostname}&sz=64`
+  } catch {
+    return "https://www.google.com/s2/favicons?domain=example.com&sz=64"
+  }
+}
+
+function relativeTime(isoDate: string): string {
+  const diffMs = Date.now() - new Date(isoDate).getTime()
+  const mins = Math.floor(diffMs / 60_000)
+  const hrs = Math.floor(mins / 60)
+  const days = Math.floor(hrs / 24)
+  const weeks = Math.floor(days / 7)
+
+  if (mins < 1) return "just now"
+  if (mins < 60) return `${mins}m ago`
+  if (hrs < 24) return `${hrs}h ago`
+  if (days < 7) return `${days}d ago`
+  if (weeks < 5) return `${weeks}w ago`
+  return new Date(isoDate).toLocaleDateString("en-US", {
+    month: "short", day: "numeric", year: "numeric",
+  })
+}
+
+function mapRowToLinkData(row: Record<string, unknown>): LinkData {
+  const slug = (row.slug as string) ?? ""
+  const destinationUrl = (row.destination_url as string) ?? ""
+  const createdIso = (row.created_at as string) ?? ""
+  return {
+    slug,
+    shortUrl: `https://linkd.sh/${slug}`,
+    shortCode: slug,
+    domain: "linkd.sh",
+    originalUrl: destinationUrl,
+    favicon: getFaviconForUrl(destinationUrl),
+    description: (row.description as string) ?? "",
+    clicks: 0,
+    createdAt: createdIso ? relativeTime(createdIso) : "",
+    createdBy: (row.user_id as string) ?? "",
+    createdDate: createdIso
+      ? new Date(createdIso).toLocaleString("en-US", {
+          month: "short", day: "numeric", year: "numeric",
+          hour: "numeric", minute: "2-digit", hour12: true,
+        })
+      : "",
+    isActive: true,
+    tags: Array.isArray(row.tags) ? (row.tags as string[]) : [],
+    folder: (row.folder as string) ?? "Links",
+    conversionTracking: (row.conversion_tracking as boolean) ?? false,
+  }
 }
 
 const SKELETON_ROWS = 8
@@ -31,42 +82,41 @@ export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps)
   const [toastTitle, setToastTitle] = useState("")
   const [toastMessage, setToastMessage] = useState("")
 
-  const refreshLinks = useCallback(() => {
-    setLinks(getInitialLinks())
+  const refreshLinks = useCallback(async () => {
+    const { user } = await getAuthUser()
+    if (!user) {
+      setLinks([])
+      return
+    }
+    const { data, error } = await getLinksForUser(user.id)
+    if (error || !data) {
+      console.error("Failed to load links", error)
+      setLinks([])
+      return
+    }
+    setLinks(data.map((r) => mapRowToLinkData(r as Record<string, unknown>)))
   }, [])
 
   useEffect(() => {
-    setLinks(getInitialLinks())
-    setMounted(true)
-  }, [])
+    refreshLinks().then(() => setMounted(true))
+  }, [refreshLinks])
 
   useEffect(() => {
-    window.addEventListener("links:updated", refreshLinks)
+    const handler = () => { refreshLinks() }
+    window.addEventListener("links:updated", handler)
+    window.addEventListener("auth:updated", handler)
     return () => {
-      window.removeEventListener("links:updated", refreshLinks)
+      window.removeEventListener("links:updated", handler)
+      window.removeEventListener("auth:updated", handler)
     }
   }, [refreshLinks])
 
-  const handleCreateLink = (newLink: LinkData) => {
-    try {
-      setLinks((prev) => {
-        const next = [...prev, newLink]
-        saveStoredLinks(next)
-        return next
-      })
-
-      setToastType("success")
-      setToastTitle("Link Created")
-      setToastMessage("The short link was created successfully.")
-      setToastVisible(true)
-      setOpen(false)
-    } catch (error) {
-      console.error("Failed to create link", error)
-      setToastType("error")
-      setToastTitle("Link Creation Failed")
-      setToastMessage("Something went wrong while creating the short link.")
-      setToastVisible(true)
-    }
+  const handleCreateLink = (_newLink: LinkData) => {
+    setToastType("success")
+    setToastTitle("Link Created")
+    setToastMessage("The short link was created successfully.")
+    setToastVisible(true)
+    setOpen(false)
   }
 
   return (
@@ -110,6 +160,8 @@ export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps)
       </div>
 
       <Separator className="mx-6" />
+
+      <DevAuth />
 
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 px-6 py-3">
