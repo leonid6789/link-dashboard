@@ -262,6 +262,28 @@ export async function getClickCountsForUserLinks(
   return { data: counts, error: null };
 }
 
+/**
+ * Fetches all analytics rows (id, clicked_at, link_id) for a user's links.
+ * Used by the Analytics page to compute totals and chart data.
+ */
+export async function getAnalyticsForUserLinks(userId: string) {
+  const supabase = createClient();
+  const { data: links, error: linksError } = await supabase
+    .from("links_tbl")
+    .select("id")
+    .eq("user_id", userId);
+  if (linksError || !links?.length) {
+    return { data: linksError ? null : [], error: linksError ?? null };
+  }
+  const linkIds = links.map((r) => r.id);
+  const { data, error } = await supabase
+    .from("analytics_tbl")
+    .select("id, clicked_at, link_id")
+    .in("link_id", linkIds)
+    .order("clicked_at", { ascending: true });
+  return { data: data ?? [], error };
+}
+
 export async function getLinkBySlug(slug: string, userId: string) {
   const supabase = createClient();
   const { data, error } = await supabase

@@ -1,6 +1,8 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
+import Link from "next/link"
+import { usePathname } from "next/navigation"
 import {
   Home,
   BarChart3,
@@ -19,9 +21,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { getCurrentUserProfile, signOutUser, type CurrentUserProfile } from "@/lib/supabase/client"
 
 const navItems = [
-  { icon: Home, label: "Home", active: true },
-  { icon: BarChart3, label: "Analytics", active: false },
-  { icon: Users, label: "Customers", active: false },
+  { icon: Home, label: "Home", href: "/" },
+  { icon: BarChart3, label: "Analytics", href: "/analytics" },
+  { icon: Users, label: "Customers", href: "#" },
 ]
 
 const secondaryItems = [
@@ -48,6 +50,7 @@ function getInitials(profile: CurrentUserProfile | null): string {
 }
 
 export function DashboardSidebar({ collapsed }: DashboardSidebarProps) {
+  const pathname = usePathname()
   const [profile, setProfile] = useState<CurrentUserProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -160,36 +163,39 @@ export function DashboardSidebar({ collapsed }: DashboardSidebarProps) {
 
         {/* Main nav */}
         <nav className={`flex flex-col gap-0.5 ${collapsed ? "items-center px-1.5" : "px-3"}`}>
-          {navItems.map((item) =>
-            collapsed ? (
+          {navItems.map((item) => {
+            const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)
+            return collapsed ? (
               <Tooltip key={item.label}>
                 <TooltipTrigger asChild>
-                  <button
+                  <Link
+                    href={item.href}
                     className={`flex h-9 w-9 items-center justify-center rounded-md transition-colors ${
-                      item.active
+                      isActive
                         ? "bg-accent text-accent-foreground"
                         : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                     }`}
                   >
                     <item.icon className="h-4 w-4" />
-                  </button>
+                  </Link>
                 </TooltipTrigger>
                 <TooltipContent side="right">{item.label}</TooltipContent>
               </Tooltip>
             ) : (
-              <button
+              <Link
                 key={item.label}
+                href={item.href}
                 className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
-                  item.active
+                  isActive
                     ? "bg-accent text-accent-foreground font-medium"
                     : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                 }`}
               >
                 <item.icon className="h-4 w-4 shrink-0" />
                 {item.label}
-              </button>
+              </Link>
             )
-          )}
+          })}
         </nav>
 
         <Separator className={collapsed ? "mx-2 my-2" : "mx-3 my-2"} />
