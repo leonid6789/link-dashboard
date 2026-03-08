@@ -137,13 +137,31 @@ export async function signInWithPassword(email: string, password: string) {
   return { data, error };
 }
 
-export async function signUpWithPassword(email: string, password: string) {
+/**
+ * Sign up with email and password. Pass optional name for user_metadata and users_tbl.
+ * When Supabase has "Confirm Email" disabled, a session is returned and we upsert users_tbl
+ * so the sidebar shows name/email. When confirmation is required, no session is returned;
+ * the caller should show a "Check your email" message.
+ */
+export async function signUpWithPassword(
+  email: string,
+  password: string,
+  name?: string | null
+) {
   const supabase = createClient();
-  const { data, error } = await supabase.auth.signUp({ email, password });
+  const nameValue = name?.trim() || null;
+  const { data, error } = await supabase.auth.signUp(
+    { email, password },
+    nameValue != null ? { data: { name: nameValue } } : undefined,
+  );
 
-  if (!error && data.user) {
+  if (!error && data.user && data.session) {
     await supabase.from("users_tbl").upsert(
-      { id: data.user.id, email: data.user.email },
+      {
+        id: data.user.id,
+        email: data.user.email ?? null,
+        name: nameValue,
+      },
       { onConflict: "id" },
     );
   }
