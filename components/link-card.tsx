@@ -1,10 +1,26 @@
 "use client"
 
-import { Copy, MousePointerClick, ExternalLink } from "lucide-react"
+import { Copy, MousePointerClick, ExternalLink, MoreHorizontal, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 interface LinkCardProps {
+  id?: string
   slug: string
   shortUrl: string
   originalUrl: string
@@ -13,9 +29,11 @@ interface LinkCardProps {
   clicks: number
   createdAt: string
   isActive: boolean
+  onDelete?: (linkId: string) => void | Promise<void>
 }
 
 export function LinkCard({
+  id,
   slug,
   shortUrl,
   originalUrl,
@@ -24,8 +42,11 @@ export function LinkCard({
   clicks,
   createdAt,
   isActive,
+  onDelete,
 }: LinkCardProps) {
   const [copied, setCopied] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const router = useRouter()
 
   const handleCopy = (e: React.MouseEvent) => {
@@ -35,8 +56,21 @@ export function LinkCard({
     setTimeout(() => setCopied(false), 2000)
   }
 
-  const handleCardClick = () => {
+  const handleCardClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement
+    if (target.closest('button, a, [role="menuitem"], [data-no-nav="true"]')) return
     router.push(`/links/${slug}`)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!id || !onDelete) return
+    setDeleting(true)
+    try {
+      await onDelete(id)
+      setDeleteDialogOpen(false)
+    } finally {
+      setDeleting(false)
+    }
   }
 
   return (
@@ -47,8 +81,10 @@ export function LinkCard({
       tabIndex={0}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
+          const target = e.target as HTMLElement
+          if (target.closest('button, a, [role="menuitem"], [data-no-nav="true"]')) return
           e.preventDefault()
-          handleCardClick()
+          router.push(`/links/${slug}`)
         }
       }}
     >
@@ -115,7 +151,62 @@ export function LinkCard({
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary" />
           </span>
         )}
+        {id && onDelete && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                data-no-nav="true"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  e.preventDefault()
+                }}
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                aria-label="More options"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="border-border bg-popover">
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={(e) => {
+                  e.stopPropagation()
+                  setDeleteDialogOpen(true)
+                }}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
       </div>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent className="border-border bg-background">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-foreground">Delete Link</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              Are you sure you want to delete this link? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-border text-foreground hover:bg-accent">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleConfirmDelete()
+              }}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting…" : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -9,7 +9,7 @@ import { LinkCard } from "@/components/link-card"
 import CreateLinkModal from "@/components/create-link-modal"
 import { ToastNotification } from "@/components/toast-notification"
 import { mapRowToLinkData, type LinkData } from "@/lib/links-data"
-import { getAuthUser, getLinksForUser, getClickCountsForUserLinks } from "@/lib/supabase/client"
+import { getAuthUser, getLinksForUser, getClickCountsForUserLinks, deleteLink } from "@/lib/supabase/client"
 
 interface LinksContentProps {
   collapsed: boolean
@@ -75,6 +75,22 @@ export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps)
     setToastMessage("The short link was created successfully.")
     setToastVisible(true)
     setOpen(false)
+  }
+
+  const handleDeleteLink = async (linkId: string) => {
+    const { error } = await deleteLink(linkId)
+    if (error) {
+      setToastType("error")
+      setToastTitle("Failed to delete link")
+      setToastMessage(error.message)
+      setToastVisible(true)
+      return
+    }
+    window.dispatchEvent(new Event("links:updated"))
+    setToastType("success")
+    setToastTitle("Link deleted successfully")
+    setToastMessage("")
+    setToastVisible(true)
   }
 
   return (
@@ -145,7 +161,7 @@ export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps)
         <div className="flex flex-col gap-2">
           {mounted ? (
             links.map((link) => (
-              <LinkCard key={link.id || link.slug} {...link} />
+              <LinkCard key={link.id || link.slug} {...link} onDelete={handleDeleteLink} />
             ))
           ) : (
             Array.from({ length: SKELETON_ROWS }, (_, i) => (

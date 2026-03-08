@@ -14,6 +14,7 @@ import {
   FolderOpen,
   PanelLeftClose,
   PanelLeftOpen,
+  Trash2,
 } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
@@ -23,9 +24,25 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { updateLink, getLinkBySlug } from "@/lib/supabase/client"
+import { updateLink, getLinkBySlug, deleteLink } from "@/lib/supabase/client"
 import type { LinkData } from "@/lib/links-data"
 import { ToastNotification } from "@/components/toast-notification"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 interface LinkDetailContentProps {
   link: LinkData
@@ -47,6 +64,8 @@ export function LinkDetailContent({ link, collapsed, onToggleCollapse }: LinkDet
   const [toastType, setToastType] = useState<"success" | "error">("success")
   const [toastTitle, setToastTitle] = useState("")
   const [toastMessage, setToastMessage] = useState("")
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     setSlugInput(link.slug)
@@ -128,6 +147,27 @@ export function LinkDetailContent({ link, collapsed, onToggleCollapse }: LinkDet
     }
   }
 
+  const handleConfirmDelete = async () => {
+    if (!link.id) return
+    setDeleting(true)
+    const { error } = await deleteLink(link.id)
+    setDeleting(false)
+    setDeleteDialogOpen(false)
+    if (error) {
+      setToastType("error")
+      setToastTitle("Failed to delete link")
+      setToastMessage(error.message)
+      setToastVisible(true)
+      return
+    }
+    window.dispatchEvent(new Event("links:updated"))
+    setToastType("success")
+    setToastTitle("Link deleted successfully")
+    setToastMessage("")
+    setToastVisible(true)
+    router.push("/")
+  }
+
   return (
     <TooltipProvider delayDuration={0}>
       {toastVisible && (
@@ -177,14 +217,27 @@ export function LinkDetailContent({ link, collapsed, onToggleCollapse }: LinkDet
               <Copy className="h-3.5 w-3.5" />
               {copied ? "Copied!" : "Copy link"}
             </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8 border-border text-foreground hover:bg-accent"
-            >
-              <MoreHorizontal className="h-4 w-4" />
-              <span className="sr-only">More options</span>
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8 border-border text-foreground hover:bg-accent"
+                >
+                  <MoreHorizontal className="h-4 w-4" />
+                  <span className="sr-only">More options</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="border-border bg-popover">
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={() => setDeleteDialogOpen(true)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -349,6 +402,32 @@ export function LinkDetailContent({ link, collapsed, onToggleCollapse }: LinkDet
             </p>
           </div>
         </div>
+
+        <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <AlertDialogContent className="border-border bg-background">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-foreground">Delete Link</AlertDialogTitle>
+              <AlertDialogDescription className="text-muted-foreground">
+                Are you sure you want to delete this link? This action cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="border-border text-foreground hover:bg-accent">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={(e) => {
+                  e.preventDefault()
+                  handleConfirmDelete()
+                }}
+                disabled={deleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </main>
     </TooltipProvider>
   )
