@@ -157,10 +157,46 @@ export async function signOut() {
   return { error };
 }
 
+export async function signOutUser() {
+  const supabase = createClient();
+  const { error } = await supabase.auth.signOut();
+  return { error };
+}
+
 export async function getAuthUser() {
   const supabase = createClient();
   const { data: { user }, error } = await supabase.auth.getUser();
   return { user, error };
+}
+
+/** Profile fields from users_tbl for the current authenticated user (RLS: users_tbl.id = auth.uid()). */
+export type CurrentUserProfile = { name: string | null; email: string | null };
+
+/**
+ * Gets the currently authenticated user's profile (name, email) from users_tbl.
+ * Uses auth.uid() via getUser(); no hardcoded ids or localStorage. RLS-compliant.
+ */
+export async function getCurrentUserProfile(): Promise<{
+  data: CurrentUserProfile | null;
+  error: Error | null;
+}> {
+  const supabase = createClient();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user) {
+    return { data: null, error: authError ?? new Error("Not authenticated") };
+  }
+  const { data, error } = await supabase
+    .from("users_tbl")
+    .select("name, email")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (error) {
+    return { data: null, error };
+  }
+  return {
+    data: data ? { name: data.name ?? null, email: data.email ?? null } : null,
+    error: null,
+  };
 }
 export async function getLinksForUser(userId: string) {
   const supabase = createClient();
@@ -170,6 +206,42 @@ export async function getLinksForUser(userId: string) {
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   return { data, error };
+}
+
+/**
+ * Returns click counts per link_id for all of a user's links.
+ * Keys are link IDs, values are counts from analytics_tbl.
+ */
+export async function getClickCountsForUserLinks(
+  userId: string
+): Promise<{ data: Record<string, number> | null; error: Error | null }> {
+  const supabase = createClient();
+  const { data: links, error: linksError } = await supabase
+    .from("links_tbl")
+    .select("id")
+    .eq("user_id", userId);
+  if (linksError || !links?.length) {
+    return { data: linksError ? null : {}, error: linksError ?? null };
+  }
+  const linkIds = links.map((r) => r.id);
+  const { data: rows, error } = await supabase
+    .from("analytics_tbl")
+    .select("link_id")
+    .in("link_id", linkIds);
+  if (error) {
+    return { data: null, error };
+  }
+  const counts: Record<string, number> = {};
+  for (const id of linkIds) {
+    counts[id] = 0;
+  }
+  for (const row of rows ?? []) {
+    const lid = row.link_id as string;
+    if (lid in counts) {
+      counts[lid] += 1;
+    }
+  }
+  return { data: counts, error: null };
 }
 
 export async function getLinkBySlug(slug: string, userId: string) {

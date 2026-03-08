@@ -9,7 +9,7 @@ import { LinkCard } from "@/components/link-card"
 import CreateLinkModal from "@/components/create-link-modal"
 import { ToastNotification } from "@/components/toast-notification"
 import { mapRowToLinkData, type LinkData } from "@/lib/links-data"
-import { getAuthUser, getLinksForUser } from "@/lib/supabase/client"
+import { getAuthUser, getLinksForUser, getClickCountsForUserLinks } from "@/lib/supabase/client"
 
 interface LinksContentProps {
   collapsed: boolean
@@ -33,13 +33,26 @@ export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps)
       setLinks([])
       return
     }
-    const { data, error } = await getLinksForUser(user.id)
-    if (error || !data) {
+    const [linksResult, countsResult] = await Promise.all([
+      getLinksForUser(user.id),
+      getClickCountsForUserLinks(user.id),
+    ])
+    const { data: linksData, error } = linksResult
+    if (error || !linksData) {
       console.error("Failed to load links", error)
       setLinks([])
       return
     }
-    setLinks(data.map((r) => mapRowToLinkData(r as Record<string, unknown>)))
+    const clickCounts = countsResult.error ? {} : countsResult.data ?? {}
+    setLinks(
+      linksData.map((r) => {
+        const link = mapRowToLinkData(r as Record<string, unknown>)
+        return {
+          ...link,
+          clicks: (link.id && clickCounts[link.id]) ?? 0,
+        }
+      })
+    )
   }, [])
 
   useEffect(() => {

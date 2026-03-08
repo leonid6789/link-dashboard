@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect, useRef } from "react"
 import {
   Home,
   BarChart3,
@@ -10,10 +11,12 @@ import {
   HelpCircle,
   Link2,
   ChevronDown,
+  LogOut,
 } from "lucide-react"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Separator } from "@/components/ui/separator"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { getCurrentUserProfile, signOutUser, type CurrentUserProfile } from "@/lib/supabase/client"
 
 const navItems = [
   { icon: Home, label: "Home", active: true },
@@ -35,7 +38,50 @@ interface DashboardSidebarProps {
   collapsed: boolean
 }
 
+function getInitials(profile: CurrentUserProfile | null): string {
+  if (!profile?.name?.trim()) return "?"
+  const parts = profile.name.trim().split(/\s+/)
+  if (parts.length >= 2) {
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase().slice(0, 2)
+  }
+  return profile.name.slice(0, 2).toUpperCase()
+}
+
 export function DashboardSidebar({ collapsed }: DashboardSidebarProps) {
+  const [profile, setProfile] = useState<CurrentUserProfile | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const profileRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    getCurrentUserProfile().then(({ data }) => {
+      if (!cancelled) {
+        setProfile(data ?? null)
+        setLoading(false)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!dropdownOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside)
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [dropdownOpen])
+
+  async function handleSignOut() {
+    await signOutUser()
+    window.location.href = "/"
+  }
+
   return (
     <TooltipProvider delayDuration={0}>
       <aside
@@ -43,24 +89,53 @@ export function DashboardSidebar({ collapsed }: DashboardSidebarProps) {
           collapsed ? "w-16" : "w-64"
         }`}
       >
-        {/* Account */}
-        <div className={`flex items-center gap-3 p-4 ${collapsed ? "justify-center px-2" : ""}`}>
-          <Avatar className="h-9 w-9 shrink-0">
-            <AvatarImage src="https://api.dicebear.com/9.x/notionists/svg?seed=Aidan" alt="Profile" />
-            <AvatarFallback className="bg-primary text-primary-foreground text-xs">JD</AvatarFallback>
-          </Avatar>
-          {!collapsed && (
-            <>
-              <div className="flex flex-col overflow-hidden">
-                <span className="truncate text-sm font-medium text-sidebar-foreground">
-                  Jordan Davis
-                </span>
-                <span className="truncate text-xs text-muted-foreground">
-                  jordan@linkly.io
-                </span>
-              </div>
-              <ChevronDown className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
-            </>
+        {/* Account dropdown */}
+        <div ref={profileRef} className="relative">
+          <button
+            type="button"
+            onClick={() => setDropdownOpen((open) => !open)}
+            className={`flex w-full items-center gap-3 p-4 rounded-md transition-colors hover:bg-accent/50 ${collapsed ? "justify-center px-2" : ""}`}
+            aria-expanded={dropdownOpen}
+            aria-haspopup="true"
+          >
+            <Avatar className="h-9 w-9 shrink-0">
+              <AvatarImage src={undefined} alt="Profile" />
+              <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                {loading ? "…" : getInitials(profile)}
+              </AvatarFallback>
+            </Avatar>
+            {!collapsed && (
+              <>
+                <div className="flex flex-col overflow-hidden min-w-0 text-left">
+                  <span className="truncate text-sm font-medium text-sidebar-foreground">
+                    {loading ? "Loading..." : (profile?.name ?? "—")}
+                  </span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {loading ? " " : (profile?.email ?? "—")}
+                  </span>
+                </div>
+                <ChevronDown className={`ml-auto h-4 w-4 shrink-0 text-muted-foreground transition-transform ${dropdownOpen ? "rotate-180" : ""}`} />
+              </>
+            )}
+          </button>
+
+          {dropdownOpen && (
+            <div
+              className="absolute left-3 right-3 top-full z-50 mt-1 rounded-md border py-1 shadow-lg"
+              style={{
+                backgroundColor: "#090909",
+                borderColor: "#2E2E2E",
+              }}
+            >
+              <button
+                type="button"
+                onClick={handleSignOut}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-white transition-colors hover:bg-[#1a1a1a]"
+              >
+                <LogOut className="h-4 w-4 shrink-0" />
+                Sign Out
+              </button>
+            </div>
           )}
         </div>
 
