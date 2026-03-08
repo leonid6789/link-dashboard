@@ -9,7 +9,6 @@ import { LinkCard } from "@/components/link-card"
 import CreateLinkModal from "@/components/create-link-modal"
 import { ToastNotification } from "@/components/toast-notification"
 import { mapRowToLinkData, type LinkData } from "@/lib/links-data"
-import { DevAuth } from "@/components/dev-auth"
 import { getAuthUser, getLinksForUser } from "@/lib/supabase/client"
 
 interface LinksContentProps {
@@ -106,8 +105,6 @@ export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps)
       </div>
 
       <Separator className="mx-6" />
-
-      <DevAuth />
 
       {/* Toolbar */}
       <div className="flex items-center justify-between gap-3 px-6 py-3">

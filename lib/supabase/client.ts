@@ -110,6 +110,27 @@ export async function getAnalytics(linkId: string) {
 
 // --- Auth helpers ---
 
+/** Cookie name used to pass signup name to auth callback (short-lived). */
+export const SIGNUP_NAME_COOKIE = "signup_name";
+
+/**
+ * Send a magic link to the given email. Optionally pass emailRedirectTo (e.g. current app origin + /auth/callback).
+ * Caller can set a cookie for signup name before calling this so the callback can upsert users_tbl with it.
+ */
+export async function signInWithMagicLink(
+  email: string,
+  options?: { emailRedirectTo?: string }
+) {
+  const supabase = createClient();
+  const { data, error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: options?.emailRedirectTo,
+    },
+  });
+  return { data, error };
+}
+
 export async function signInWithPassword(email: string, password: string) {
   const supabase = createClient();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });

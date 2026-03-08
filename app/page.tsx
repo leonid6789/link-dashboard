@@ -1,16 +1,13 @@
-"use client"
+import { getServerUser } from "@/lib/supabase/server";
+import { MagicAuth } from "@/components/magic-auth";
+import { DashboardPage } from "@/components/dashboard-page";
 
-import { useState } from "react"
-import { DashboardSidebar } from "@/components/dashboard-sidebar"
-import { LinksContent } from "@/components/links-content"
+export default async function HomePage() {
+  const { user } = await getServerUser();
 
-export default function DashboardPage() {
-  const [collapsed, setCollapsed] = useState(false)
+  if (!user) {
+    return <MagicAuth />;
+  }
 
-  return (
-    <div className="flex h-screen overflow-hidden">
-      <DashboardSidebar collapsed={collapsed} />
-      <LinksContent collapsed={collapsed} onToggleCollapse={() => setCollapsed(!collapsed)} />
-    </div>
-  )
+  return <DashboardPage />;
 }
