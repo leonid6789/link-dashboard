@@ -16,10 +16,21 @@ function setSignupNameCookie(name: string) {
   document.cookie = `${SIGNUP_NAME_COOKIE}=${value}; path=/; max-age=600; SameSite=Lax`;
 }
 
+type AuthMode = "magic" | "signin" | "signup";
 type Action = "sign-in" | "sign-up" | "magic-link" | null;
+
+const inputClass =
+  "w-full border bg-transparent text-white placeholder:opacity-60";
+const inputStyle = { borderColor: "#2E2E2E" };
+const mutedStyle = { color: "#BCBCBC" };
+const cardStyle = { borderColor: "#2E2E2E" };
+const bgStyle = { backgroundColor: "#090909" };
+const btnSolidStyle = { backgroundColor: "#1F1F1F" };
+const btnOutlineStyle = { borderColor: "#2E2E2E", backgroundColor: "transparent" };
 
 export function MagicAuth() {
   const router = useRouter();
+  const [mode, setMode] = useState<AuthMode>("magic");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -113,18 +124,24 @@ export function MagicAuth() {
     setSuccess(true);
   };
 
+  const handleSubmit = (e: React.FormEvent) => {
+    if (mode === "magic") return handleMagicLink(e);
+    if (mode === "signin") return handleSignIn(e);
+    return handleSignUp(e);
+  };
+
   if (success) {
     return (
       <div
         className="flex min-h-screen flex-col items-center justify-center px-4"
-        style={{ backgroundColor: "#090909" }}
+        style={bgStyle}
       >
         <div
           className="w-full max-w-sm rounded-lg border p-6 text-center"
-          style={{ borderColor: "#2E2E2E" }}
+          style={cardStyle}
         >
           <p className="text-white">Check your email</p>
-          <p className="mt-2 text-sm" style={{ color: "#BCBCBC" }}>
+          <p className="mt-2 text-sm" style={mutedStyle}>
             {successConfirmEmail ? (
               <>
                 We sent a confirmation link to{" "}
@@ -147,41 +164,77 @@ export function MagicAuth() {
   return (
     <div
       className="flex min-h-screen flex-col items-center justify-center px-4"
-      style={{ backgroundColor: "#090909" }}
+      style={bgStyle}
     >
       <div
         className="w-full max-w-sm rounded-lg border p-6"
-        style={{ borderColor: "#2E2E2E" }}
+        style={cardStyle}
       >
         <h1 className="text-xl font-semibold text-white">Sign in</h1>
-        <p className="mt-1 text-sm" style={{ color: "#BCBCBC" }}>
-          Sign in with email and password, or use a magic link.
+        <p className="mt-1 text-sm" style={mutedStyle}>
+          Choose how you’d like to sign in or create an account.
         </p>
-        <form className="mt-6 space-y-4">
+
+        <div className="mt-4 flex gap-1 rounded-md p-0.5" style={{ backgroundColor: "#1F1F1F" }}>
+          <button
+            type="button"
+            onClick={() => { setMode("magic"); setError(null); }}
+            className="flex-1 rounded px-3 py-2 text-sm font-medium transition-colors"
+            style={
+              mode === "magic"
+                ? { backgroundColor: "#2E2E2E", color: "#fff" }
+                : mutedStyle
+            }
+          >
+            Continue with Magic Link
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode("signin"); setError(null); }}
+            className="flex-1 rounded px-3 py-2 text-sm font-medium transition-colors"
+            style={
+              mode === "signin"
+                ? { backgroundColor: "#2E2E2E", color: "#fff" }
+                : mutedStyle
+            }
+          >
+            Sign In
+          </button>
+          <button
+            type="button"
+            onClick={() => { setMode("signup"); setError(null); }}
+            className="flex-1 rounded px-3 py-2 text-sm font-medium transition-colors"
+            style={
+              mode === "signup"
+                ? { backgroundColor: "#2E2E2E", color: "#fff" }
+                : mutedStyle
+            }
+          >
+            Create Account
+          </button>
+        </div>
+
+        <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
+          {(mode === "magic" || mode === "signup") && (
+            <div>
+              <label htmlFor="name" className="mb-1.5 block text-sm text-white">
+                Name <span style={mutedStyle}>(optional)</span>
+              </label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="Your name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+                disabled={busy}
+                autoComplete="name"
+              />
+            </div>
+          )}
           <div>
-            <label
-              htmlFor="name"
-              className="mb-1.5 block text-sm text-white"
-            >
-              Name <span style={{ color: "#BCBCBC" }}>(optional)</span>
-            </label>
-            <Input
-              id="name"
-              type="text"
-              placeholder="Your name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="w-full border bg-transparent text-white placeholder:opacity-60"
-              style={{ borderColor: "#2E2E2E" }}
-              disabled={busy}
-              autoComplete="name"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="email"
-              className="mb-1.5 block text-sm text-white"
-            >
+            <label htmlFor="email" className="mb-1.5 block text-sm text-white">
               Email
             </label>
             <Input
@@ -190,74 +243,45 @@ export function MagicAuth() {
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full border bg-transparent text-white placeholder:opacity-60"
-              style={{ borderColor: "#2E2E2E" }}
+              className={inputClass}
+              style={inputStyle}
               disabled={busy}
               required
               autoComplete="email"
             />
           </div>
-          <div>
-            <label
-              htmlFor="password"
-              className="mb-1.5 block text-sm text-white"
-            >
-              Password
-            </label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full border bg-transparent text-white placeholder:opacity-60"
-              style={{ borderColor: "#2E2E2E" }}
-              disabled={busy}
-              autoComplete="current-password"
-            />
-          </div>
-          {error && (
-            <p className="text-sm text-red-400">{error}</p>
+          {(mode === "signin" || mode === "signup") && (
+            <div>
+              <label htmlFor="password" className="mb-1.5 block text-sm text-white">
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={inputClass}
+                style={inputStyle}
+                disabled={busy}
+                autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              />
+            </div>
           )}
-          <div className="flex flex-col gap-2">
-            <Button
-              type="button"
-              onClick={handleSignIn}
-              className="w-full text-white"
-              style={{ backgroundColor: "#1F1F1F" }}
-              disabled={busy}
-            >
-              {loadingAction === "sign-in"
-                ? "Signing in…"
-                : "Sign In"}
-            </Button>
-            <Button
-              type="button"
-              onClick={handleSignUp}
-              className="w-full text-white"
-              style={{ backgroundColor: "#1F1F1F" }}
-              disabled={busy}
-            >
-              {loadingAction === "sign-up"
-                ? "Signing up…"
-                : "Sign Up"}
-            </Button>
-            <Button
-              type="button"
-              onClick={handleMagicLink}
-              variant="outline"
-              className="w-full text-white"
-              style={{
-                borderColor: "#2E2E2E",
-                backgroundColor: "transparent",
-              }}
-              disabled={busy}
-            >
-              {loadingAction === "magic-link"
-                ? "Sending…"
-                : "Send Magic Link"}
-            </Button>
-          </div>
+          {error && <p className="text-sm text-red-400">{error}</p>}
+          <Button
+            type="submit"
+            className="w-full text-white"
+            style={mode === "magic" ? btnOutlineStyle : btnSolidStyle}
+            disabled={busy}
+          >
+            {mode === "magic" &&
+              (loadingAction === "magic-link" ? "Sending…" : "Send Magic Link")}
+            {mode === "signin" &&
+              (loadingAction === "sign-in" ? "Signing in…" : "Sign In")}
+            {mode === "signup" &&
+              (loadingAction === "sign-up" ? "Signing up…" : "Create Account")}
+          </Button>
         </form>
       </div>
     </div>
