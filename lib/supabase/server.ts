@@ -32,8 +32,16 @@ export async function getLinkBySlug(slug: string) {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("links_tbl")
-    .select("destination_url")
+    .select("id, destination_url")
     .eq("slug", slug)
     .maybeSingle();
   return { data, error };
+}
+
+export async function createAnalytics(linkId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("analytics_tbl")
+    .insert({ link_id: linkId });
+  return { error };
 }

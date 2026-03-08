@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getLinkBySlug } from "@/lib/supabase/server";
+import { getLinkBySlug, createAnalytics } from "@/lib/supabase/server";
 
 type Props = {
   params: Promise<{ slug: string }>;
@@ -15,6 +15,11 @@ export default async function ShortLinkRedirectPage({ params }: Props) {
         <p className="text-muted-foreground">Link not found</p>
       </div>
     );
+  }
+
+  const { error: analyticsError } = await createAnalytics(data.id);
+  if (analyticsError) {
+    console.error("[analytics] insert failed:", analyticsError);
   }
 
   redirect(data.destination_url);
