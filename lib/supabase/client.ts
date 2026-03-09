@@ -98,16 +98,6 @@ export async function deleteLink(linkId: string) {
   return { data, error };
 }
 
-export async function getAnalytics(linkId: string) {
-  const supabase = createClient();
-  const { data, error } = await supabase
-    .from("analytics_tbl")
-    .select("*")
-    .eq("link_id", linkId)
-    .order("clicked_at", { ascending: false });
-  return { data, error };
-}
-
 // --- Auth helpers ---
 
 /** Cookie name used to pass signup name to auth callback (short-lived). */
@@ -167,12 +157,6 @@ export async function signUpWithPassword(
   }
 
   return { data, error };
-}
-
-export async function signOut() {
-  const supabase = createClient();
-  const { error } = await supabase.auth.signOut();
-  return { error };
 }
 
 export async function signOutUser() {
