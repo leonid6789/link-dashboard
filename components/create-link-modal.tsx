@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/select"
 import type { LinkData } from "@/lib/links-data"
 import { getShortLinkDomain } from "@/lib/links-data"
-import { createLink, getAuthUser } from "@/lib/supabase/client"
+import { createLink, getAuthUser, isValidHttpUrl } from "@/lib/supabase/client"
 import { ToastNotification } from "@/components/toast-notification"
 
 function getFaviconForUrl(url: string): string {
@@ -93,6 +93,15 @@ export default function CreateLinkModal({
     }
 
     const destination_url = destinationUrl.trim() || "https://example.com"
+
+    if (!isValidHttpUrl(destination_url)) {
+      setToastType("error")
+      setToastTitle("Invalid URL")
+      setToastMessage("Destination URL must start with http:// or https://.")
+      setToastVisible(true)
+      return
+    }
+
     const slug = shortCode
     const tags = tagsText
       .split(/[\s,]+/)

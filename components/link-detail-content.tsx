@@ -24,7 +24,7 @@ import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { updateLink, getLinkBySlug, deleteLink } from "@/lib/supabase/client"
+import { updateLink, getLinkBySlug, deleteLink, isValidHttpUrl } from "@/lib/supabase/client"
 import type { LinkData } from "@/lib/links-data"
 import { ToastNotification } from "@/components/toast-notification"
 import {
@@ -86,6 +86,14 @@ export function LinkDetailContent({ link, collapsed, onToggleCollapse }: LinkDet
 
   const handleSave = async () => {
     if (!hasChanges || !link.id) return
+
+    if (!isValidHttpUrl(originalUrl)) {
+      setToastType("error")
+      setToastTitle("Invalid URL")
+      setToastMessage("Destination URL must start with http:// or https://.")
+      setToastVisible(true)
+      return
+    }
 
     const trimmedSlug = slugInput.trim()
     if (!trimmedSlug) {

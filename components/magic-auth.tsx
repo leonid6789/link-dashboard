@@ -14,7 +14,8 @@ import {
 
 function setSignupNameCookie(name: string) {
   const value = encodeURIComponent(name.trim());
-  document.cookie = `${SIGNUP_NAME_COOKIE}=${value}; path=/; max-age=600; SameSite=Lax`;
+  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  document.cookie = `${SIGNUP_NAME_COOKIE}=${value}; path=/; max-age=600; SameSite=Lax${secure}`;
 }
 
 type AuthMode = "magic" | "signin" | "signup";

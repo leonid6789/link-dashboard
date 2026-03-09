@@ -49,7 +49,7 @@ export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps)
         const link = mapRowToLinkData(r as Record<string, unknown>)
         return {
           ...link,
-          clicks: (link.id && clickCounts[link.id]) ?? 0,
+          clicks: (link.id ? clickCounts[link.id] : 0) ?? 0,
         }
       })
     )

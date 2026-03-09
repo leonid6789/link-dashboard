@@ -9,6 +9,16 @@ export const createClient = () =>
     supabaseKey!,
   );
 
+/** Returns true if the URL starts with http:// or https://. */
+export function isValidHttpUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 // --- Helper functions (use createClient() for frontend) ---
 
 export async function getUser(userId: string) {
@@ -140,10 +150,11 @@ export async function signUpWithPassword(
 ) {
   const supabase = createClient();
   const nameValue = name?.trim() || null;
-  const { data, error } = await supabase.auth.signUp(
-    { email, password },
-    nameValue != null ? { data: { name: nameValue } } : undefined,
-  );
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: nameValue != null ? { data: { name: nameValue } } : undefined,
+  });
 
   if (!error && data.user && data.session) {
     await supabase.from("users_tbl").upsert(
