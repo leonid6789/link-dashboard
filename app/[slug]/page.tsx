@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { getLinkBySlug, createAnalytics } from "@/lib/supabase/server";
 
+export const runtime = "edge";
+
 type Props = {
   params: Promise<{ slug: string }>;
 };

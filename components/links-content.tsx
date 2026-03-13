@@ -1,15 +1,19 @@
 "use client"
 
 import { useCallback, useEffect, useState } from "react"
+import dynamic from "next/dynamic"
 import { ChevronDown, Plus, Search, SlidersHorizontal, ListChecks, PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { LinkCard } from "@/components/link-card"
-import CreateLinkModal from "@/components/create-link-modal"
 import { ToastNotification } from "@/components/toast-notification"
 import { mapRowToLinkData, type LinkData } from "@/lib/links-data"
 import { getAuthUser, getLinksForUser, getClickCountsForUserLinks, deleteLink } from "@/lib/supabase/client"
+
+const CreateLinkModal = dynamic(() => import("@/components/create-link-modal"), {
+  ssr: false,
+})
 
 interface LinksContentProps {
   collapsed: boolean
@@ -20,6 +24,7 @@ const SKELETON_ROWS = 8
 
 export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps) {
   const [open, setOpen] = useState(false)
+  const [modalMounted, setModalMounted] = useState(false)
   const [mounted, setMounted] = useState(false)
   const [links, setLinks] = useState<LinkData[]>([])
   const [toastVisible, setToastVisible] = useState(false)
@@ -54,6 +59,10 @@ export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps)
       })
     )
   }, [])
+
+  useEffect(() => {
+    if (open) setModalMounted(true)
+  }, [open])
 
   useEffect(() => {
     refreshLinks().then(() => setMounted(true))
@@ -95,11 +104,13 @@ export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps)
 
   return (
     <main className="flex flex-1 flex-col overflow-hidden bg-background">
-      <CreateLinkModal
-        open={open}
-        onOpenChange={setOpen}
-        onCreateLink={handleCreateLink}
-      />
+      {modalMounted && (
+        <CreateLinkModal
+          open={open}
+          onOpenChange={setOpen}
+          onCreateLink={handleCreateLink}
+        />
+      )}
       {toastVisible && (
         <ToastNotification
           title={toastTitle}

@@ -94,6 +94,7 @@ export const LinkCard = memo(function LinkCard({
           src={favicon}
           alt=""
           className="h-5 w-5 rounded-sm"
+          loading="lazy"
           onError={(e) => {
             (e.target as HTMLImageElement).style.display = "none"
           }}
