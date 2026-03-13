@@ -1,7 +1,7 @@
 "use client"
 
 import { Copy, MousePointerClick, ExternalLink, MoreHorizontal, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { memo, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   DropdownMenu,
@@ -32,7 +32,7 @@ interface LinkCardProps {
   onDelete?: (linkId: string) => void | Promise<void>
 }
 
-export function LinkCard({
+export const LinkCard = memo(function LinkCard({
   id,
   slug,
   shortUrl,
@@ -209,4 +209,4 @@ export function LinkCard({
       </AlertDialog>
     </div>
   )
-}
+})

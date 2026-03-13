@@ -77,7 +77,7 @@ export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps)
     setOpen(false)
   }
 
-  const handleDeleteLink = async (linkId: string) => {
+  const handleDeleteLink = useCallback(async (linkId: string) => {
     const { error } = await deleteLink(linkId)
     if (error) {
       setToastType("error")
@@ -91,7 +91,7 @@ export function LinksContent({ collapsed, onToggleCollapse }: LinksContentProps)
     setToastTitle("Link deleted successfully")
     setToastMessage("")
     setToastVisible(true)
-  }
+  }, [])
 
   return (
     <main className="flex flex-1 flex-col overflow-hidden bg-background">

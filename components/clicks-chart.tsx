@@ -1,5 +1,6 @@
 "use client"
 
+import { memo } from "react"
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 import {
   ChartContainer,
@@ -25,7 +26,7 @@ function formatDateLabel(dateStr: string) {
   return `${month}/${day}`
 }
 
-export function ClicksChart({ data }: ClicksChartProps) {
+export const ClicksChart = memo(function ClicksChart({ data }: ClicksChartProps) {
   return (
     <ChartContainer config={chartConfig} className="h-64 w-full">
       <BarChart data={data} margin={{ top: 4, right: 4, bottom: 0, left: -12 }}>
@@ -57,4 +58,4 @@ export function ClicksChart({ data }: ClicksChartProps) {
       </BarChart>
     </ChartContainer>
   )
-}
+})
