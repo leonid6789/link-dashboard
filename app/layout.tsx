@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { GoogleAnalytics } from '@/components/google-analytics'
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -41,6 +42,7 @@ export default function RootLayout({
         {children}
         <Analytics />
         <GoogleAnalytics />
+        <SpeedInsights />
       </body>
     </html>
   )
