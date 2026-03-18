@@ -44,40 +44,18 @@ export async function getLinkBySlug(slug: string) {
   return { data, error };
 }
 
-const ANALYTICS_DEDUP_WINDOW_MS = 2000;
-
 /**
- * Inserts an analytics row unless one already exists for the same link
- * within `ANALYTICS_DEDUP_WINDOW_MS`.
+ * Atomically inserts an analytics row unless a recent duplicate exists,
+ * delegating dedup logic to a Supabase SQL function.
  */
 export async function createAnalyticsIfNotDuplicate(linkId: string) {
   try {
     const supabase = await createClient();
-    const cutoffIso = new Date(Date.now() - ANALYTICS_DEDUP_WINDOW_MS).toISOString();
-
-    // Lightweight de-duplication: if we already saw this link "very recently",
-    // don't add another click row.
-    const { data: existingRows, error: lookupError } = await supabase
-      .from("analytics_tbl")
-      .select("id")
-      .eq("link_id", linkId)
-      .gte("clicked_at", cutoffIso)
-      .limit(1);
-
-    if (lookupError) {
-      return { error: lookupError };
-    }
-
-    const hasRecent = Array.isArray(existingRows) && existingRows.length > 0;
-    if (hasRecent) {
-      return { error: null };
-    }
-
-    const { error: insertError } = await supabase
-      .from("analytics_tbl")
-      .insert({ link_id: linkId });
-
-    return { error: insertError };
+    const { error } = await supabase.rpc(
+      "create_analytics_if_not_duplicate",
+      { link_id_input: linkId },
+    );
+    return { error };
   } catch (err) {
     const error = err instanceof Error ? err : new Error(String(err));
     return { error };
