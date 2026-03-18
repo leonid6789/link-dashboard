@@ -9,6 +9,7 @@ import {
   signInWithMagicLink,
   signInWithPassword,
   signUpWithPassword,
+  resetPasswordForEmail,
   SIGNUP_NAME_COOKIE,
 } from "@/lib/supabase/client";
 
@@ -18,8 +19,8 @@ function setSignupNameCookie(name: string) {
   document.cookie = `${SIGNUP_NAME_COOKIE}=${value}; path=/; max-age=600; SameSite=Lax${secure}`;
 }
 
-type AuthMode = "magic" | "signin" | "signup";
-type Action = "sign-in" | "sign-up" | "magic-link" | null;
+type AuthMode = "magic" | "signin" | "signup" | "forgot";
+type Action = "sign-in" | "sign-up" | "magic-link" | "reset-request" | null;
 
 const inputClass =
   "w-full border bg-transparent text-white placeholder:opacity-60";
@@ -39,6 +40,7 @@ export function MagicAuth() {
   const [loadingAction, setLoadingAction] = useState<Action>(null);
   const [success, setSuccess] = useState(false);
   const [successConfirmEmail, setSuccessConfirmEmail] = useState(false);
+  const [successResetEmail, setSuccessResetEmail] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -127,9 +129,29 @@ export function MagicAuth() {
     setSuccess(true);
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail) {
+      setError("Please enter your email.");
+      return;
+    }
+    setLoadingAction("reset-request");
+    const { error: err } = await resetPasswordForEmail(trimmedEmail);
+    setLoadingAction(null);
+    if (err) {
+      setError(err.message);
+      return;
+    }
+    setSuccessResetEmail(true);
+    setSuccess(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     if (mode === "magic") return handleMagicLink(e);
     if (mode === "signin") return handleSignIn(e);
+    if (mode === "forgot") return handleForgotPassword(e);
     return handleSignUp(e);
   };
 
@@ -145,7 +167,13 @@ export function MagicAuth() {
         >
           <p className="text-white">Check your email</p>
           <p className="mt-2 text-sm" style={mutedStyle}>
-            {successConfirmEmail ? (
+            {successResetEmail ? (
+              <>
+                We sent a password reset link to{" "}
+                <span className="text-white">{email}</span>. Click the link to
+                set a new password.
+              </>
+            ) : successConfirmEmail ? (
               <>
                 We sent a confirmation link to{" "}
                 <span className="text-white">{email}</span>. Click the link to
@@ -173,49 +201,55 @@ export function MagicAuth() {
         className="w-full max-w-sm rounded-lg border p-6"
         style={cardStyle}
       >
-        <h1 className="text-xl font-semibold text-white">Sign in</h1>
+        <h1 className="text-xl font-semibold text-white">
+          {mode === "forgot" ? "Reset password" : "Sign in"}
+        </h1>
         <p className="mt-1 text-sm" style={mutedStyle}>
-          Choose how you’d like to sign in or create an account.
+          {mode === "forgot"
+            ? "Enter your email and we\u2019ll send you a reset link."
+            : "Choose how you'd like to sign in or create an account."}
         </p>
 
-        <div className="mt-4 flex gap-1 rounded-md p-0.5" style={{ backgroundColor: "#1F1F1F" }}>
-          <button
-            type="button"
-            onClick={() => { setMode("magic"); setError(null); }}
-            className="flex-1 rounded px-3 py-2 text-sm font-medium transition-colors"
-            style={
-              mode === "magic"
-                ? { backgroundColor: "#2E2E2E", color: "#fff" }
-                : mutedStyle
-            }
-          >
-            Continue with Magic Link
-          </button>
-          <button
-            type="button"
-            onClick={() => { setMode("signin"); setError(null); }}
-            className="flex-1 rounded px-3 py-2 text-sm font-medium transition-colors"
-            style={
-              mode === "signin"
-                ? { backgroundColor: "#2E2E2E", color: "#fff" }
-                : mutedStyle
-            }
-          >
-            Sign In
-          </button>
-          <button
-            type="button"
-            onClick={() => { setMode("signup"); setError(null); }}
-            className="flex-1 rounded px-3 py-2 text-sm font-medium transition-colors"
-            style={
-              mode === "signup"
-                ? { backgroundColor: "#2E2E2E", color: "#fff" }
-                : mutedStyle
-            }
-          >
-            Create Account
-          </button>
-        </div>
+        {mode !== "forgot" && (
+          <div className="mt-4 flex gap-1 rounded-md p-0.5" style={{ backgroundColor: "#1F1F1F" }}>
+            <button
+              type="button"
+              onClick={() => { setMode("magic"); setError(null); }}
+              className="flex-1 rounded px-3 py-2 text-sm font-medium transition-colors"
+              style={
+                mode === "magic"
+                  ? { backgroundColor: "#2E2E2E", color: "#fff" }
+                  : mutedStyle
+              }
+            >
+              Continue with Magic Link
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode("signin"); setError(null); }}
+              className="flex-1 rounded px-3 py-2 text-sm font-medium transition-colors"
+              style={
+                mode === "signin"
+                  ? { backgroundColor: "#2E2E2E", color: "#fff" }
+                  : mutedStyle
+              }
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode("signup"); setError(null); }}
+              className="flex-1 rounded px-3 py-2 text-sm font-medium transition-colors"
+              style={
+                mode === "signup"
+                  ? { backgroundColor: "#2E2E2E", color: "#fff" }
+                  : mutedStyle
+              }
+            >
+              Create Account
+            </button>
+          </div>
+        )}
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit}>
           {(mode === "magic" || mode === "signup") && (
@@ -285,6 +319,16 @@ export function MagicAuth() {
                   )}
                 </button>
               </div>
+              {mode === "signin" && (
+                <button
+                  type="button"
+                  onClick={() => { setMode("forgot"); setError(null); }}
+                  className="mt-1.5 text-sm hover:underline"
+                  style={mutedStyle}
+                >
+                  Forgot password?
+                </button>
+              )}
             </div>
           )}
           {error && <p className="text-sm text-red-400">{error}</p>}
@@ -295,12 +339,24 @@ export function MagicAuth() {
             disabled={busy}
           >
             {mode === "magic" &&
-              (loadingAction === "magic-link" ? "Sending…" : "Send Magic Link")}
+              (loadingAction === "magic-link" ? "Sending\u2026" : "Send Magic Link")}
             {mode === "signin" &&
-              (loadingAction === "sign-in" ? "Signing in…" : "Sign In")}
+              (loadingAction === "sign-in" ? "Signing in\u2026" : "Sign In")}
             {mode === "signup" &&
-              (loadingAction === "sign-up" ? "Signing up…" : "Create Account")}
+              (loadingAction === "sign-up" ? "Signing up\u2026" : "Create Account")}
+            {mode === "forgot" &&
+              (loadingAction === "reset-request" ? "Sending\u2026" : "Send Reset Link")}
           </Button>
+          {mode === "forgot" && (
+            <button
+              type="button"
+              onClick={() => { setMode("signin"); setError(null); }}
+              className="w-full text-center text-sm hover:underline"
+              style={mutedStyle}
+            >
+              Back to Sign In
+            </button>
+          )}
         </form>
       </div>
     </div>

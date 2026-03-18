@@ -30,7 +30,9 @@ export async function GET(request: Request) {
     }
   }
 
-  const response = NextResponse.redirect(new URL("/", requestUrl.origin));
+  const next = requestUrl.searchParams.get("next") || "/";
+  const redirectPath = next.startsWith("/") ? next : "/";
+  const response = NextResponse.redirect(new URL(redirectPath, requestUrl.origin));
   response.cookies.set(SIGNUP_NAME_COOKIE, "", { path: "/", maxAge: 0 });
   return response;
 }

@@ -170,6 +170,31 @@ export async function signUpWithPassword(
   return { data, error };
 }
 
+/**
+ * Sends a password reset email. The user will receive a link that redirects to /reset-password.
+ * Must be called from the browser so window.location.origin is available.
+ */
+export async function resetPasswordForEmail(email: string) {
+  const supabase = createClient();
+  const redirectTo =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/reset-password`
+      : undefined;
+  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo,
+  });
+  return { data, error };
+}
+
+/** Updates the password for the currently authenticated user (used after clicking a reset link). */
+export async function updateUserPassword(newPassword: string) {
+  const supabase = createClient();
+  const { data, error } = await supabase.auth.updateUser({
+    password: newPassword,
+  });
+  return { data, error };
+}
+
 export async function signOutUser() {
   const supabase = createClient();
   const { error } = await supabase.auth.signOut();
