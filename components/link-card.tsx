@@ -1,7 +1,7 @@
 "use client"
 
 import { Copy, MousePointerClick, ExternalLink, MoreHorizontal, Trash2 } from "lucide-react"
-import { memo, useState } from "react"
+import { memo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import {
   DropdownMenu,
@@ -19,6 +19,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import QRCode from "react-qr-code"
 interface LinkCardProps {
   id?: string
   slug: string
@@ -46,8 +49,10 @@ export const LinkCard = memo(function LinkCard({
 }: LinkCardProps) {
   const [copied, setCopied] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [qrDialogOpen, setQrDialogOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const router = useRouter()
+  const qrContainerRef = useRef<HTMLDivElement | null>(null)
 
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation()
@@ -71,6 +76,32 @@ export const LinkCard = memo(function LinkCard({
     } finally {
       setDeleting(false)
     }
+  }
+
+  const handleDownloadQr = () => {
+    // `react-qr-code` renders an SVG; we serialize that SVG for an easy "download as image" flow.
+    const svgEl = qrContainerRef.current?.querySelector("svg")
+    if (!svgEl) return
+
+    const serializer = new XMLSerializer()
+    let svgString = serializer.serializeToString(svgEl)
+
+    // Ensure xmlns is present for best compatibility when opening/saving.
+    if (!svgString.includes('xmlns="http://www.w3.org/2000/svg"')) {
+      svgString = svgString.replace(/^<svg/, '<svg xmlns="http://www.w3.org/2000/svg"')
+    }
+
+    const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+
+    const link = document.createElement("a")
+    link.href = url
+    link.download = `qr-${slug}.svg`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -169,6 +200,14 @@ export const LinkCard = memo(function LinkCard({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="border-border bg-popover">
               <DropdownMenuItem
+                onSelect={(e) => {
+                  e.stopPropagation()
+                  setQrDialogOpen(true)
+                }}
+              >
+                QR Code
+              </DropdownMenuItem>
+              <DropdownMenuItem
                 variant="destructive"
                 onSelect={(e) => {
                   e.stopPropagation()
@@ -182,6 +221,26 @@ export const LinkCard = memo(function LinkCard({
           </DropdownMenu>
         )}
       </div>
+
+      <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+        <DialogContent className="border-border bg-background">
+          <DialogHeader className="text-center">
+            <DialogTitle className="text-foreground">QR Code</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex flex-col items-center gap-3">
+            <div ref={qrContainerRef} className="rounded-md bg-white/95 p-3">
+              <QRCode value={shortUrl} size={220} bgColor="#FFFFFF" fgColor="#000000" level="M" />
+            </div>
+
+            <div className="w-full break-all text-center text-xs text-muted-foreground">{shortUrl}</div>
+
+            <Button type="button" variant="outline" className="mt-2" onClick={handleDownloadQr}>
+              Download QR
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent className="border-border bg-background">
