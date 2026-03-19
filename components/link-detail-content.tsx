@@ -404,9 +404,7 @@ export function LinkDetailContent({ link, collapsed, onToggleCollapse }: LinkDet
 
             {/* Footer */}
             <p className="text-xs text-muted-foreground">
-              Created by{" "}
-              <span className="text-foreground">{link.createdBy}</span>
-              {" "}on {link.createdDate}
+              Created on {link.createdDate}
             </p>
           </div>
         </div>
