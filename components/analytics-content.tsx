@@ -29,7 +29,23 @@ interface UserLink {
   description: string | null
 }
 
+type DateRange = "7d" | "30d" | "all"
+
+const DATE_RANGE_OPTIONS: { value: DateRange; label: string }[] = [
+  { value: "7d", label: "7 Days" },
+  { value: "30d", label: "30 Days" },
+  { value: "all", label: "All Time" },
+]
+
 type AnalyticsRow = { clicked_at: string; link_id: string }
+
+function getDateRangeCutoff(range: DateRange): Date | null {
+  if (range === "all") return null
+  const now = new Date()
+  now.setHours(0, 0, 0, 0)
+  now.setDate(now.getDate() - (range === "7d" ? 7 : 30))
+  return now
+}
 
 function groupByDay(rows: { clicked_at: string }[]): DailyClicks[] {
   const map = new Map<string, number>()
@@ -50,6 +66,7 @@ export function AnalyticsContent({ collapsed, onToggleCollapse }: AnalyticsConte
   const [analyticsRows, setAnalyticsRows] = useState<AnalyticsRow[]>([])
   const [userLinks, setUserLinks] = useState<UserLink[]>([])
   const [selectedLinkId, setSelectedLinkId] = useState("all")
+  const [selectedDateRange, setSelectedDateRange] = useState<DateRange>("30d")
   const [loading, setLoading] = useState(true)
 
   const fetchAnalytics = useCallback(async () => {
@@ -89,13 +106,19 @@ export function AnalyticsContent({ collapsed, onToggleCollapse }: AnalyticsConte
     fetchAnalytics()
   }, [fetchAnalytics])
 
-  const filteredRows = useMemo(
-    () =>
-      selectedLinkId === "all"
-        ? analyticsRows
-        : analyticsRows.filter((r) => r.link_id === selectedLinkId),
-    [analyticsRows, selectedLinkId]
-  )
+  const filteredRows = useMemo(() => {
+    let rows = selectedLinkId === "all"
+      ? analyticsRows
+      : analyticsRows.filter((r) => r.link_id === selectedLinkId)
+
+    const cutoff = getDateRangeCutoff(selectedDateRange)
+    if (cutoff) {
+      const cutoffIso = cutoff.toISOString()
+      rows = rows.filter((r) => r.clicked_at >= cutoffIso)
+    }
+
+    return rows
+  }, [analyticsRows, selectedLinkId, selectedDateRange])
 
   const totalClicks = filteredRows.length
   const chartData = useMemo(() => groupByDay(filteredRows), [filteredRows])
@@ -133,20 +156,35 @@ export function AnalyticsContent({ collapsed, onToggleCollapse }: AnalyticsConte
           </div>
         ) : (
           <div className="flex flex-col gap-6">
-            {/* Link filter */}
-            <Select value={selectedLinkId} onValueChange={setSelectedLinkId}>
-              <SelectTrigger className="w-64">
-                <SelectValue placeholder="All Links" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Links</SelectItem>
-                {userLinks.map((link) => (
-                  <SelectItem key={link.id} value={link.id}>
-                    {linkLabel(link)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-3">
+              <Select value={selectedLinkId} onValueChange={setSelectedLinkId}>
+                <SelectTrigger className="w-64">
+                  <SelectValue placeholder="All Links" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Links</SelectItem>
+                  {userLinks.map((link) => (
+                    <SelectItem key={link.id} value={link.id}>
+                      {linkLabel(link)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedDateRange} onValueChange={(v) => setSelectedDateRange(v as DateRange)}>
+                <SelectTrigger className="w-40">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DATE_RANGE_OPTIONS.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* Summary card */}
             <div className="inline-flex w-fit flex-col gap-1 rounded-lg border border-border bg-secondary/50 px-6 py-4">
