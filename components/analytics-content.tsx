@@ -1,10 +1,17 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { BarChart3, PanelLeftClose, PanelLeftOpen } from "lucide-react"
 import { Separator } from "@/components/ui/separator"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { ClicksChart } from "@/components/clicks-chart"
-import { getAuthUser, getAnalyticsForUserLinks } from "@/lib/supabase/client"
+import { getAuthUser, getAnalyticsForUserLinks, getLinksForUser } from "@/lib/supabase/client"
 
 interface AnalyticsContentProps {
   collapsed: boolean
@@ -16,6 +23,14 @@ export interface DailyClicks {
   clicks: number
 }
 
+interface UserLink {
+  id: string
+  slug: string
+  description: string | null
+}
+
+type AnalyticsRow = { clicked_at: string; link_id: string }
+
 function groupByDay(rows: { clicked_at: string }[]): DailyClicks[] {
   const map = new Map<string, number>()
   for (const row of rows) {
@@ -26,35 +41,64 @@ function groupByDay(rows: { clicked_at: string }[]): DailyClicks[] {
   return entries.map(([date, clicks]) => ({ date, clicks }))
 }
 
+function linkLabel(link: UserLink): string {
+  if (link.description) return `${link.description} (/${link.slug})`
+  return `/${link.slug}`
+}
+
 export function AnalyticsContent({ collapsed, onToggleCollapse }: AnalyticsContentProps) {
-  const [totalClicks, setTotalClicks] = useState(0)
-  const [chartData, setChartData] = useState<DailyClicks[]>([])
+  const [analyticsRows, setAnalyticsRows] = useState<AnalyticsRow[]>([])
+  const [userLinks, setUserLinks] = useState<UserLink[]>([])
+  const [selectedLinkId, setSelectedLinkId] = useState("all")
   const [loading, setLoading] = useState(true)
 
   const fetchAnalytics = useCallback(async () => {
     const { user } = await getAuthUser()
     if (!user) {
-      setTotalClicks(0)
-      setChartData([])
+      setAnalyticsRows([])
+      setUserLinks([])
       setLoading(false)
       return
     }
-    const { data, error } = await getAnalyticsForUserLinks(user.id)
-    if (error || !data) {
-      console.error("Failed to load analytics", error)
-      setTotalClicks(0)
-      setChartData([])
-      setLoading(false)
-      return
+
+    const [analyticsResult, linksResult] = await Promise.all([
+      getAnalyticsForUserLinks(user.id),
+      getLinksForUser(user.id),
+    ])
+
+    if (analyticsResult.error || !analyticsResult.data) {
+      console.error("Failed to load analytics", analyticsResult.error)
     }
-    setTotalClicks(data.length)
-    setChartData(groupByDay(data as { clicked_at: string }[]))
+    setAnalyticsRows((analyticsResult.data ?? []) as AnalyticsRow[])
+
+    if (linksResult.error) {
+      console.error("Failed to load links", linksResult.error)
+    }
+    setUserLinks(
+      (linksResult.data ?? []).map((r: Record<string, unknown>) => ({
+        id: (r.id as string) ?? "",
+        slug: (r.slug as string) ?? "",
+        description: (r.description as string) ?? null,
+      }))
+    )
+
     setLoading(false)
   }, [])
 
   useEffect(() => {
     fetchAnalytics()
   }, [fetchAnalytics])
+
+  const filteredRows = useMemo(
+    () =>
+      selectedLinkId === "all"
+        ? analyticsRows
+        : analyticsRows.filter((r) => r.link_id === selectedLinkId),
+    [analyticsRows, selectedLinkId]
+  )
+
+  const totalClicks = filteredRows.length
+  const chartData = useMemo(() => groupByDay(filteredRows), [filteredRows])
 
   return (
     <main className="flex flex-1 flex-col overflow-hidden bg-background">
@@ -83,11 +127,27 @@ export function AnalyticsContent({ collapsed, onToggleCollapse }: AnalyticsConte
       <div className="flex-1 overflow-y-auto px-6 py-6">
         {loading ? (
           <div className="flex flex-col gap-6">
+            <div className="h-9 w-48 animate-pulse rounded-md border border-border bg-secondary" />
             <div className="h-24 w-64 animate-pulse rounded-lg border border-border bg-secondary" />
             <div className="h-80 animate-pulse rounded-lg border border-border bg-secondary" />
           </div>
         ) : (
           <div className="flex flex-col gap-6">
+            {/* Link filter */}
+            <Select value={selectedLinkId} onValueChange={setSelectedLinkId}>
+              <SelectTrigger className="w-64">
+                <SelectValue placeholder="All Links" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Links</SelectItem>
+                {userLinks.map((link) => (
+                  <SelectItem key={link.id} value={link.id}>
+                    {linkLabel(link)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
             {/* Summary card */}
             <div className="inline-flex w-fit flex-col gap-1 rounded-lg border border-border bg-secondary/50 px-6 py-4">
               <span className="text-sm text-muted-foreground">Total clicks</span>
